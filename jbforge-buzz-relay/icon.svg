@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFC93C"/>
+      <stop offset="1" stop-color="#F5A623"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+  <!-- honeycomb cluster -->
+  <g fill="none" stroke="#5C3A00" stroke-width="10" stroke-linejoin="round">
+    <path d="M128 62l30 17.3v34.6L128 131.2l-30-17.3V79.3z"/>
+    <path d="M188 96l30 17.3v34.6L188 165.2l-30-17.3v-34.6z" opacity="0.85"/>
+    <path d="M68 96l30 17.3v34.6L68 165.2l-30-17.3v-34.6z" opacity="0.85"/>
+    <path d="M128 131.2l30 17.3v34.6L128 200.4l-30-17.3v-34.6z" opacity="0.7"/>
+  </g>
+  <!-- relay dot in the center cell -->
+  <circle cx="128" cy="97" r="12" fill="#5C3A00"/>
+</svg>
