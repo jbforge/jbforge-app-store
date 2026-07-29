@@ -1,0 +1,65 @@
+manifestVersion: 1
+id: jbforge-buzz-relay
+name: Buzz Relay
+tagline: Self-hosted relay for Buzz — the agent-first team workspace by Block
+icon: https://raw.githubusercontent.com/jbforge/jbforge-app-store/main/jbforge-buzz-relay/icon.svg
+category: social
+version: "0.2.0"
+port: 8482
+description: >-
+  Runs the buzz-relay backend for Buzz (https://github.com/block/buzz), a
+  self-hostable workspace where humans and AI agents share the same rooms.
+
+  A Buzz community IS its relay: this app stands up the full stack —
+  buzz-relay (Rust), Postgres, Redis, MinIO, and a host-aware nginx gateway —
+  so your community lives on your own hardware and survives restarts.
+
+  After installing, open the Buzz desktop app, choose "Join an existing
+  community", and enter:
+
+  ws://umbrel.local:8482  (or ws://<your-umbrel-ip>:8482)
+
+  Notes:
+  • The relay binds its community to one canonical host. By default that is
+    the address above. To publish it under a different name (a Tailscale
+    MagicDNS name, a domain behind a reverse proxy), set
+    APP_JBFORGE_BUZZ_RELAY_URL in app-data/jbforge-buzz-relay/user.env before
+    first start — changing it later re-seeds a new, empty community.
+  • Requests arriving on any other host are redirected to the canonical URL by
+    the bundled gateway, so the Umbrel dashboard tile still lands somewhere
+    useful instead of a bare 404.
+  • The relay runs in open mode: anyone who can reach the port and holds a
+    Nostr key can join. Keep it on your LAN/Tailscale, or enable the pubkey
+    allowlist / closed relay mode via env if you expose it.
+  • The relay signing key derives from this install's app seed, so the
+    community identity is stable across restarts and updates. It can be
+    overridden via user.env to carry an existing community onto this install.
+  • All data is stored under this app's data directory and is included in
+    normal Umbrel app backups.
+
+developer: Block (packaged by JBForge)
+website: https://github.com/block/buzz
+submitter: jbforge
+submission: https://github.com/jbforge/jbforge-app-store
+repo: https://github.com/block/buzz
+support: https://github.com/block/buzz/issues
+gallery:
+  - https://raw.githubusercontent.com/block/buzz/main/docs/assets/screenshots/channel-thread.png
+  - https://raw.githubusercontent.com/block/buzz/main/docs/assets/screenshots/channel-agents.png
+  - https://raw.githubusercontent.com/block/buzz/main/docs/assets/screenshots/create-channel.png
+releaseNotes: >-
+  0.2.0: first public release under the JBForge App Store. Continues the
+  jacks-buzz-relay 0.1.x lineage (crash-loop fix, static IPs, bundled web UI,
+  user.env relay/media URL override, host-aware nginx gateway) under a new app
+  id, and adds BUZZ_RELAY_PRIVATE_KEY / BUZZ_GIT_HOOK_HMAC_SECRET overrides in
+  user.env so an existing community's identity can be carried onto a new
+  install.
+
+  Tracks the ghcr.io/block/buzz:main image (Buzz has no stable release tags
+  yet). Restarting the app does not re-pull; update the app to pick up a newer
+  relay build.
+
+dependencies: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""

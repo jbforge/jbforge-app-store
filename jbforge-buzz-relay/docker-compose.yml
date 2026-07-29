@@ -1,0 +1,192 @@
+version: "3.7"
+
+# Ported from block/buzz deploy/compose/compose.yml for umbrelOS.
+# Internal service passwords are hardcoded (official Umbrel app convention —
+# postgres/redis/minio are only reachable on this app's private network).
+# Secrets that must be stable AND private (relay signing key, git-hook HMAC)
+# derive from ${APP_SEED}, Umbrel's deterministic per-install secret, and are
+# overridable via app-data/jbforge-buzz-relay/user.env — see exports.sh.
+
+services:
+  app_proxy:
+    environment:
+      APP_HOST: ${APP_JBFORGE_BUZZ_RELAY_GATEWAY_IP}
+      APP_PORT: 80
+      # No Umbrel login wall: the Buzz desktop app must reach the relay
+      # (WebSocket + REST) directly, same as the official nostr-relay app.
+      PROXY_AUTH_ADD: "false"
+
+  # Host-aware gateway: canonical host passes through to the relay (with
+  # WebSocket upgrade support); any other Host (e.g. the Umbrel dashboard
+  # icon's LAN URL) 302s to the canonical public URL.
+  gateway:
+    image: nginx:1.27-alpine
+    restart: on-failure
+    environment:
+      BUZZ_CANONICAL_HOST: ${APP_JBFORGE_BUZZ_RELAY_CANONICAL_HOST}
+      BUZZ_PUBLIC_URL: ${APP_JBFORGE_BUZZ_RELAY_PUBLIC_URL}
+      BUZZ_RELAY_UPSTREAM: ${APP_JBFORGE_BUZZ_RELAY_IP}:3000
+      # Written to /etc/nginx/templates at start; the nginx image's entrypoint
+      # envsubst's the ${BUZZ_*} refs. $$ escapes keep nginx runtime vars and
+      # the envsubst-time refs out of compose interpolation.
+      NGINX_TEMPLATE: |
+        map $$http_upgrade $$connection_upgrade {
+            default upgrade;
+            ''      close;
+        }
+        server {
+            listen 80;
+            server_name _;
+            if ($$host != "$${BUZZ_CANONICAL_HOST}") {
+                return 302 $${BUZZ_PUBLIC_URL}$$request_uri;
+            }
+            location / {
+                proxy_pass http://$${BUZZ_RELAY_UPSTREAM};
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $$http_upgrade;
+                proxy_set_header Connection $$connection_upgrade;
+                proxy_set_header Host $$host;
+                proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+                proxy_read_timeout 24h;
+                proxy_send_timeout 24h;
+                client_max_body_size 512m;
+            }
+        }
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        mkdir -p /etc/nginx/templates
+        printf '%s' "$$NGINX_TEMPLATE" > /etc/nginx/templates/default.conf.template
+        exec /docker-entrypoint.sh nginx -g 'daemon off;'
+    networks:
+      default:
+        ipv4_address: ${APP_JBFORGE_BUZZ_RELAY_GATEWAY_IP}
+
+  # Umbrel creates bind-mount dirs as root; the buzz image runs as uid 1000
+  # and needs to write /data/git. Chown once before the relay starts.
+  git-dir-init:
+    image: busybox:1.36
+    command: ["chown", "-R", "1000:1000", "/data/git"]
+    volumes:
+      - ${APP_DATA_DIR}/data/git:/data/git
+    restart: "no"
+
+  relay:
+    image: ghcr.io/block/buzz:main
+    restart: on-failure
+    stop_grace_period: 1m
+    environment:
+      BUZZ_BIND_ADDR: 0.0.0.0:3000
+      BUZZ_HEALTH_PORT: "8080"
+      BUZZ_METRICS_PORT: "9102"
+      DATABASE_URL: postgres://buzz:moneyprintergobrrr@${APP_JBFORGE_BUZZ_RELAY_POSTGRES_IP}:5432/buzz
+      REDIS_URL: redis://:moneyprintergobrrr@${APP_JBFORGE_BUZZ_RELAY_REDIS_IP}:6379
+      BUZZ_S3_ENDPOINT: http://${APP_JBFORGE_BUZZ_RELAY_MINIO_IP}:9000
+      BUZZ_S3_ACCESS_KEY: buzz-minio
+      BUZZ_S3_SECRET_KEY: moneyprintergobrrr
+      BUZZ_S3_BUCKET: buzz-media
+      BUZZ_GIT_REPO_PATH: /data/git
+      BUZZ_AUTO_MIGRATE: "true"
+      BUZZ_SERVE_GIT_WEB_GUI: "true"
+      BUZZ_GIT_CONFORMANCE_PROBE: "true"
+      BUZZ_RELAY_PRIVATE_KEY: ${APP_JBFORGE_BUZZ_RELAY_PRIVATE_KEY}
+      BUZZ_GIT_HOOK_HMAC_SECRET: ${APP_JBFORGE_BUZZ_RELAY_GIT_HOOK_SECRET}
+      RELAY_URL: ${APP_JBFORGE_BUZZ_RELAY_URL}
+      BUZZ_MEDIA_BASE_URL: ${APP_JBFORGE_BUZZ_RELAY_MEDIA_URL}
+      RUST_LOG: buzz_relay=info,buzz_db=info,buzz_auth=info,buzz_pubsub=info,tower_http=info
+    volumes:
+      - ${APP_DATA_DIR}/data/git:/data/git
+    networks:
+      default:
+        ipv4_address: ${APP_JBFORGE_BUZZ_RELAY_IP}
+    depends_on:
+      git-dir-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    # Probe /_readiness over /dev/tcp because the runtime image has bash but no curl/wget/socat.
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bash -ec 'exec 3<>/dev/tcp/127.0.0.1/8080; printf \"GET /_readiness HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n\" >&3; grep -q \"200 OK\" <&3'",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+
+  postgres:
+    image: postgres:17-alpine
+    restart: on-failure
+    environment:
+      POSTGRES_DB: buzz
+      POSTGRES_USER: buzz
+      POSTGRES_PASSWORD: moneyprintergobrrr
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - ${APP_DATA_DIR}/data/postgres:/var/lib/postgresql/data
+    networks:
+      default:
+        ipv4_address: ${APP_JBFORGE_BUZZ_RELAY_POSTGRES_IP}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U buzz -d buzz"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: on-failure
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "moneyprintergobrrr"]
+    volumes:
+      - ${APP_DATA_DIR}/data/redis:/data
+    networks:
+      default:
+        ipv4_address: ${APP_JBFORGE_BUZZ_RELAY_REDIS_IP}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a moneyprintergobrrr ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    restart: on-failure
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: buzz-minio
+      MINIO_ROOT_PASSWORD: moneyprintergobrrr
+    volumes:
+      - ${APP_DATA_DIR}/data/minio:/data
+    networks:
+      default:
+        ipv4_address: ${APP_JBFORGE_BUZZ_RELAY_MINIO_IP}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -euc '
+        mc alias set local http://${APP_JBFORGE_BUZZ_RELAY_MINIO_IP}:9000 buzz-minio moneyprintergobrrr
+        mc mb --ignore-existing local/buzz-media
+        mc anonymous set none local/buzz-media
+      '
+    restart: "no"
