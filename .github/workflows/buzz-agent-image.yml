@@ -20,7 +20,7 @@ permissions:
 
 env:
   IMAGE: ghcr.io/jbforge/buzz-hermes-agent
-  VERSION: "0.1.0"
+  VERSION: "0.1.1"
 
 jobs:
   # One native runner per architecture: the image compiles buzz-acp from

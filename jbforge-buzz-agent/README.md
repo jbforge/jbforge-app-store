@@ -55,6 +55,31 @@ editing `user.env` by hand. The container runs `hermes acp --check` before
 connecting to Buzz and retries rather than exiting, so a failed check shows up
 in the app logs with the setup page still reachable.
 
+## When it does not connect
+
+The bridge writes everything it prints to `app-data/jbforge-buzz-agent/data/hermes/bridge.log`
+(rotated at 5 MB). Read that first — `docker logs` needs host root on umbrelOS,
+and the app's status badge only proves a bridge process exists, not that it
+reached the relay.
+
+**`failed to lookup address information`** — the container cannot resolve your
+relay's hostname. Umbrel containers inherit the host's nameservers, which on a
+stock install are public resolvers, so a Tailscale MagicDNS name (`*.ts.net`)
+or any split-horizon name will not resolve. Map it explicitly:
+
+```sh
+# ~/umbrel/app-data/jbforge-buzz-agent/user.env — IP from `tailscale ip -4`
+BUZZ_RELAY_HOST_MAP="your-host.tailnet.ts.net:100.90.210.83"
+```
+
+Restart the app afterwards. Do not "fix" this by pointing the relay URL at a
+LAN address instead: the relay binds its community to one canonical host and
+answers anything else with a 404.
+
+**Rejected credentials, or a bridge that restarts every ~25 s** — check that
+the setup page received the auth tag's *value*, a four-element JSON array
+starting with `"auth"`, and not the command you used to look it up.
+
 ## Safer defaults
 
 - `BUZZ_ACP_RESPOND_TO=owner-only` is the default. Hermes ACP can use shell and

@@ -82,6 +82,10 @@ services:
       - ${APP_DATA_DIR}/data/hermes:/opt/data
       - ${APP_DATA_DIR}/workspace:/workspace
     working_dir: /workspace
+    # See exports.sh: lets an owner reach a relay whose name the container's
+    # inherited resolver cannot answer (Tailscale MagicDNS, split-horizon DNS).
+    extra_hosts:
+      - ${APP_JBFORGE_BUZZ_AGENT_RELAY_HOST_MAP}
     networks:
       - backend
     depends_on:
