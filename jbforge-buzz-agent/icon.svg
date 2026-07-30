@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Buzz Agent</title>
+  <desc id="desc">A connected agent node inside a violet hexagon</desc>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8b5cf6"/><stop offset="1" stop-color="#4c1d95"/></linearGradient></defs>
+  <rect width="256" height="256" rx="56" fill="#151020"/>
+  <path d="M128 31 210 78v100l-82 47-82-47V78z" fill="url(#g)" stroke="#c4b5fd" stroke-width="8"/>
+  <path d="M88 108h80v58a16 16 0 0 1-16 16h-48a16 16 0 0 1-16-16z" fill="#171123" stroke="#fff" stroke-width="7"/>
+  <path d="M128 108V82m-16 0h32M76 132H57m142 0h-19" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="111" cy="141" r="7" fill="#fbbf24"/><circle cx="145" cy="141" r="7" fill="#fbbf24"/>
+  <path d="M110 163h36" stroke="#c4b5fd" stroke-width="7" stroke-linecap="round"/>
+</svg>
