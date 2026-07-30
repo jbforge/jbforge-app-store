@@ -29,6 +29,10 @@ SHUTDOWN = threading.Event()
 CHILD_LOCK = threading.Lock()
 CHILD: subprocess.Popen[bytes] | None = None
 
+BRIDGE_LOG = HERMES_HOME / "bridge.log"
+BRIDGE_LOG_MAX_BYTES = 5 * 1024 * 1024
+LOG_LOCK = threading.Lock()
+
 MANAGED_KEYS = (
     "BUZZ_RELAY_URL",
     "BUZZ_PRIVATE_KEY",
@@ -43,6 +47,32 @@ REQUIRED_KEYS = (
 )
 ENV_LINE = re.compile(r"^([A-Z][A-Z0-9_]*)=(.*)$")
 HEX_64 = re.compile(r"^[0-9a-fA-F]{64}$")
+
+
+def log(line: str) -> None:
+    """Write one line to stdout and to the persistent bridge log.
+
+    `docker logs` needs host root on umbrelOS, so without a file the owner can
+    read under app-data, a headless agent that will not connect gives up no
+    evidence at all.
+    """
+    print(line, flush=True)
+    with LOG_LOCK:
+        try:
+            HERMES_HOME.mkdir(parents=True, exist_ok=True)
+            if BRIDGE_LOG.exists() and BRIDGE_LOG.stat().st_size > BRIDGE_LOG_MAX_BYTES:
+                BRIDGE_LOG.replace(BRIDGE_LOG.with_suffix(".log.1"))
+            with BRIDGE_LOG.open("a", encoding="utf-8") as handle:
+                handle.write(line + "\n")
+        except OSError as error:
+            print(f"bridge log write failed: {error}", flush=True)
+
+
+def mirror_child_output(stream) -> None:
+    """Pump the bridge's merged stdout/stderr into `log`, line by line."""
+    with stream:
+        for raw in iter(stream.readline, b""):
+            log(raw.decode("utf-8", "replace").rstrip("\n"))
 
 
 def parse_value(raw: str) -> str:
@@ -235,7 +265,12 @@ class SetupHandler(BaseHTTPRequestHandler):
         self.send_page(render_page("Configuration saved. The bridge is starting."))
 
     def log_message(self, format: str, *args: object) -> None:
-        print(f"setup: {format % args}", flush=True)
+        message = format % args
+        # The container healthcheck polls /healthz every 30s; logging it would
+        # bury the bridge output that makes this log worth keeping.
+        if "/healthz" in message:
+            return
+        log(f"setup: {message}")
 
 
 def run_setup_server() -> None:
@@ -268,7 +303,7 @@ def supervise_bridge() -> None:
     while not SHUTDOWN.is_set():
         missing = load_bridge_environment()
         if missing:
-            print("Buzz bridge waiting for: " + " ".join(missing), flush=True)
+            log("Buzz bridge waiting for: " + " ".join(missing))
             CONFIG_CHANGED.wait(5)
             CONFIG_CHANGED.clear()
             continue
@@ -276,19 +311,26 @@ def supervise_bridge() -> None:
         # Dependency/adapter import check only — it does not need a configured
         # model provider. Never fatal: exiting here would take the setup page
         # down with it, leaving no way to fix the configuration from Umbrel.
-        check = subprocess.run(["hermes", "acp", "--check"])
+        check = subprocess.run(
+            ["hermes", "acp", "--check"], capture_output=True, text=True
+        )
+        for line in (check.stdout + check.stderr).splitlines():
+            log(f"hermes acp --check: {line}")
         if check.returncode != 0:
-            print(
-                f"hermes acp --check failed ({check.returncode}); retrying in 30s",
-                flush=True,
-            )
+            log(f"hermes acp --check failed ({check.returncode}); retrying in 30s")
             CONFIG_CHANGED.wait(30)
             CONFIG_CHANGED.clear()
             continue
 
         with CHILD_LOCK:
-            CHILD = subprocess.Popen(["buzz-acp"])
-        print("Buzz bridge started.", flush=True)
+            CHILD = subprocess.Popen(
+                ["buzz-acp"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            )
+            stream = CHILD.stdout
+        threading.Thread(
+            target=mirror_child_output, args=(stream,), daemon=True
+        ).start()
+        log("Buzz bridge started.")
 
         while not SHUTDOWN.is_set() and not CONFIG_CHANGED.wait(2):
             with CHILD_LOCK:

@@ -20,7 +20,7 @@ LABEL org.opencontainers.image.title="Buzz Hermes Agent" \
       org.opencontainers.image.description="Umbrel Hermes Agent connected to Buzz through the stock buzz-acp bridge" \
       org.opencontainers.image.source="https://github.com/jbforge/jbforge-app-store" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.version="0.1.0" \
+      org.opencontainers.image.version="0.1.1" \
       io.jbforge.buzz-ref="${BUZZ_REF}" \
       io.jbforge.hermes-ref="v2026.7.20"
 
