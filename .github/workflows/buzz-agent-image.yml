@@ -1,0 +1,123 @@
+name: Build Buzz Agent image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "jbforge-buzz-agent/Dockerfile"
+      - "jbforge-buzz-agent/entrypoint.py"
+      - ".github/workflows/buzz-agent-image.yml"
+  pull_request:
+    paths:
+      - "jbforge-buzz-agent/Dockerfile"
+      - "jbforge-buzz-agent/entrypoint.py"
+      - ".github/workflows/buzz-agent-image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/jbforge/buzz-hermes-agent
+  VERSION: "0.1.0"
+
+jobs:
+  # One native runner per architecture: the image compiles buzz-acp from
+  # source, and a Rust workspace under QEMU emulation takes hours. Each leg
+  # pushes an untagged, digest-only image; `merge` binds the tags to both.
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: jbforge-buzz-agent
+          platforms: ${{ matrix.platform }}
+          # Fork PRs cannot write packages; they still get a build.
+          outputs: >-
+            ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+                && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', env.IMAGE)
+                || 'type=cacheonly' }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          # Attestations would add manifests to the digest-only push that the
+          # imagetools merge below does not expect.
+          provenance: false
+          sbom: false
+
+      # Matrix legs cannot hand values to a later job through `outputs` — legs
+      # share one map and clobber each other — so pass the digests as files.
+      - name: Export digest
+        if: steps.build.outputs.digest != ''
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${digest#sha256:}"
+        env:
+          digest: ${{ steps.build.outputs.digest }}
+
+      - uses: actions/upload-artifact@v4
+        if: steps.build.outputs.digest != ''
+        with:
+          name: digest-${{ runner.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Tags point at a manifest list, so `docker pull` resolves on both an Umbrel
+  # Home (amd64) and a Raspberry Pi (arm64) without per-arch tags.
+  merge:
+    needs: build
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - name: Create and push the manifest list
+        working-directory: /tmp/digests
+        run: |
+          set -euo pipefail
+          test "$(ls | wc -l)" -eq 2  # one digest per architecture
+          docker buildx imagetools create \
+            --tag "${IMAGE}:${VERSION}" \
+            --tag "${IMAGE}:latest" \
+            $(printf "${IMAGE}@sha256:%s " *)
+
+      - name: Digest to pin in docker-compose.yml
+        run: |
+          docker buildx imagetools inspect "${IMAGE}:${VERSION}" \
+            --format '{{.Manifest.Digest}}' | tee -a "$GITHUB_STEP_SUMMARY"
