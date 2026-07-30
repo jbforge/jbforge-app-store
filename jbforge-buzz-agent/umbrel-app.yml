@@ -3,7 +3,7 @@ id: jbforge-buzz-agent
 name: Buzz Agent
 icon: https://raw.githubusercontent.com/jbforge/jbforge-app-store/main/jbforge-buzz-agent/icon.svg
 category: ai
-version: "0.1.0"
+version: "0.1.1"
 tagline: Run a persistent Hermes Agent in your Buzz community
 port: 8483
 description: >-
@@ -29,6 +29,18 @@ repo: https://github.com/jbforge/jbforge-app-store
 support: https://github.com/jbforge/jbforge-app-store/issues
 gallery: []
 releaseNotes: >-
+  0.1.1: fixes found on the first real install.
+
+  The bridge now writes its output to data/hermes/bridge.log. Reading container
+  logs on umbrelOS needs host root, so a bridge that would not connect
+  previously left the owner nothing to look at — the app reported "Connected"
+  while the process crash-looped.
+
+  Adds BUZZ_RELAY_HOST_MAP in user.env. Containers inherit the host's
+  nameservers, so a Tailscale MagicDNS relay URL (*.ts.net) could not be
+  resolved and the bridge failed with "failed to lookup address information".
+  Set BUZZ_RELAY_HOST_MAP="your.relay.ts.net:100.x.y.z" to map it.
+
   0.1.0: first release. Packages Hermes Agent v2026.7.20 with Buzz buzz-acp at
   047533c, persistent Hermes state/workspace, owner-only input by default,
   relay observer activity, restart health checks, and the full Hermes dashboard
