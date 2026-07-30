@@ -57,7 +57,7 @@ services:
         condition: service_completed_successfully
 
   agent:
-    image: ghcr.io/jbforge/buzz-hermes-agent:0.1.0@sha256:308ef7817436a83208c9de5fc960b505cd808d2cdd6faaee04cb7458db3c2ac9
+    image: ghcr.io/jbforge/buzz-hermes-agent:0.1.1@sha256:c1ea2fa89d2b2798ca2da33800ce89450f9b2eb2e839ec54e5b113d13f995267
     restart: on-failure
     stop_grace_period: 1m
     environment:
