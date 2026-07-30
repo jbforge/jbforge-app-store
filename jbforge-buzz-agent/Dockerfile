@@ -1,6 +1,7 @@
 # Rust 1.95 matches block/buzz's rust-toolchain.toml; trixie matches the
-# runtime image below, so the binaries — which link OpenSSL dynamically through
-# native-tls — are built against the same glibc and libssl they will run on.
+# runtime image below, so the binaries are built against the glibc they run on.
+# (They turn out to need no libssl at runtime — buzz-acp and the buzz CLI use
+# rustls — but the toolchain still needs libssl-dev to build the workspace.)
 FROM rust:1.95-trixie AS buzz-builder
 
 ARG BUZZ_REF=047533c56c2a2d03f23ef3edb990e58405767aac

@@ -69,8 +69,9 @@ in the app logs with the setup page still reachable.
 
 ## Image provenance
 
-`ghcr.io/jbforge/buzz-hermes-agent:0.1.0` is built by this repository's GitHub
-Actions workflow from:
+`ghcr.io/jbforge/buzz-hermes-agent:0.1.0` — pinned by digest in
+`docker-compose.yml` — is built by this repository's GitHub Actions workflow
+from:
 
 - Buzz `047533c56c2a2d03f23ef3edb990e58405767aac` (`buzz-acp` and `buzz` CLI);
 - Umbrel's digest-pinned Hermes Agent `v2026.7.20` image with its ACP extra.
