@@ -75,5 +75,7 @@ Actions workflow from:
 - Buzz `047533c56c2a2d03f23ef3edb990e58405767aac` (`buzz-acp` and `buzz` CLI);
 - Umbrel's digest-pinned Hermes Agent `v2026.7.20` image with its ACP extra.
 
-The workflow publishes native `linux/amd64` and `linux/arm64` images with SBOM
-and provenance attestations.
+The workflow builds `linux/amd64` and `linux/arm64` on native runners — the
+image compiles `buzz-acp` from source, which is impractical under emulation —
+and merges them into one manifest list, so the tag resolves on an Umbrel Home
+and on a Raspberry Pi alike.

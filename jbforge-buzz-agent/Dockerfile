@@ -1,4 +1,7 @@
-FROM rust:1.95-bookworm AS buzz-builder
+# Rust 1.95 matches block/buzz's rust-toolchain.toml; trixie matches the
+# runtime image below, so the binaries — which link OpenSSL dynamically through
+# native-tls — are built against the same glibc and libssl they will run on.
+FROM rust:1.95-trixie AS buzz-builder
 
 ARG BUZZ_REF=047533c56c2a2d03f23ef3edb990e58405767aac
 RUN apt-get update \
