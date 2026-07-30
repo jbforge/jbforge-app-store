@@ -1,0 +1,107 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      APP_HOST: ${APP_JBFORGE_BUZZ_AGENT_PROXY_IP}
+      APP_PORT: 80
+      PROXY_AUTH_ADD: "true"
+
+  data-init:
+    image: busybox:1.36@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
+    command: ["sh", "-c", "chown -R 1000:1000 /data /workspace"]
+    volumes:
+      - ${APP_DATA_DIR}/data/hermes:/data
+      - ${APP_DATA_DIR}/workspace:/workspace
+    restart: "no"
+    network_mode: none
+
+  proxy:
+    image: nginx:1.27.5-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+    restart: on-failure
+    environment:
+      SETUP_TOKEN: ${APP_PASSWORD}
+      NGINX_ENVSUBST_FILTER: SETUP_TOKEN
+    volumes:
+      - ${APP_DATA_DIR}/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    networks:
+      default:
+        ipv4_address: ${APP_JBFORGE_BUZZ_AGENT_PROXY_IP}
+      backend:
+    depends_on:
+      web:
+        condition: service_started
+      agent:
+        condition: service_started
+
+  web:
+    image: ghcr.io/getumbrel/hermes-agent-umbrel:v2026.7.20@sha256:d1579f49c4827321c3da72508ad12065a763c18bdd7dae227b120feb4fb230cb
+    restart: on-failure
+    stop_grace_period: 1m
+    environment:
+      HERMES_UID: "1000"
+      HERMES_GID: "1000"
+      HERMES_DASHBOARD: "1"
+      HERMES_DASHBOARD_PORT: "18789"
+      HERMES_UMBREL_APP_PROXY_AUTH: "1"
+      HERMES_TUI_DIR: "/app/umbrel-tui"
+      HERMES_UPSTREAM_TUI_ENTRY: "/opt/hermes/ui-tui/dist/entry.js"
+      HERMES_GATEWAY_BOOTSTRAP_STATE: "running"
+    command: ["gateway", "run"]
+    volumes:
+      - ${APP_DATA_DIR}/data/hermes:/opt/data
+    networks:
+      - backend
+    depends_on:
+      data-init:
+        condition: service_completed_successfully
+
+  agent:
+    image: ghcr.io/jbforge/buzz-hermes-agent:0.1.0
+    restart: on-failure
+    stop_grace_period: 1m
+    environment:
+      BUZZ_RELAY_URL: ${APP_JBFORGE_BUZZ_AGENT_RELAY_URL}
+      BUZZ_PRIVATE_KEY: ${APP_JBFORGE_BUZZ_AGENT_PRIVATE_KEY}
+      BUZZ_AUTH_TAG: ${APP_JBFORGE_BUZZ_AGENT_AUTH_TAG}
+      BUZZ_API_TOKEN: ${APP_JBFORGE_BUZZ_AGENT_API_TOKEN}
+      BUZZ_ACP_AGENT_OWNER: ${APP_JBFORGE_BUZZ_AGENT_OWNER}
+      BUZZ_ACP_RESPOND_TO: ${APP_JBFORGE_BUZZ_AGENT_RESPOND_TO}
+      BUZZ_ACP_RESPOND_TO_ALLOWLIST: ${APP_JBFORGE_BUZZ_AGENT_RESPOND_TO_ALLOWLIST}
+      BUZZ_ACP_SYSTEM_PROMPT: ${APP_JBFORGE_BUZZ_AGENT_SYSTEM_PROMPT}
+      BUZZ_ACP_HEARTBEAT_INTERVAL: ${APP_JBFORGE_BUZZ_AGENT_HEARTBEAT_INTERVAL}
+      BUZZ_ACP_RELAY_OBSERVER: "true"
+      BUZZ_SETUP_TOKEN: ${APP_PASSWORD}
+      HERMES_UID: "1000"
+      HERMES_GID: "1000"
+      HERMES_HOME: /opt/data
+      HERMES_WRITE_SAFE_ROOT: /opt/data:/workspace
+      RUST_LOG: buzz_acp=info
+    command: ["/usr/local/bin/buzz-hermes-entrypoint"]
+    volumes:
+      - ${APP_DATA_DIR}/data/hermes:/opt/data
+      - ${APP_DATA_DIR}/workspace:/workspace
+    working_dir: /workspace
+    networks:
+      - backend
+    depends_on:
+      data-init:
+        condition: service_completed_successfully
+    # Probed with the image's own interpreter: curl is not a documented part of
+    # the Hermes image's contract, but /opt/hermes/.venv/bin/python is (it is on
+    # the image PATH and runs the entrypoint).
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/opt/hermes/.venv/bin/python",
+          "-c",
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8788/healthz', timeout=3).status == 200 else 1)",
+        ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+networks:
+  backend:

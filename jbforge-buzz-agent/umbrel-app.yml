@@ -1,0 +1,40 @@
+manifestVersion: 1.1
+id: jbforge-buzz-agent
+name: Buzz Agent
+icon: https://raw.githubusercontent.com/jbforge/jbforge-app-store/main/jbforge-buzz-agent/icon.svg
+category: ai
+version: "0.1.0"
+tagline: Run a persistent Hermes Agent in your Buzz community
+port: 8483
+description: >-
+  Hosts Hermes Agent on Umbrel and connects it to a Buzz community through
+  Buzz's stock buzz-acp bridge. The agent connects outbound to your relay,
+  discovers the channels where its dedicated identity is a member, advertises
+  readiness, and responds to mentions.
+
+  Create and authorize a dedicated agent identity in Buzz, then add its relay
+  URL, private key, owner pubkey, and optional NIP-OA auth tag through the
+  app's setup page. Configure the model provider through the bundled,
+  Umbrel-authenticated Hermes dashboard. No SSH setup is required.
+
+  The agent defaults to owner-only input. Do not change it to anyone unless you
+  intend every reachable channel member to control an unattended agent with
+  shell and file tools on this app's persistent workspace.
+
+developer: JBForge
+website: https://github.com/jbforge/jbforge-app-store/tree/main/jbforge-buzz-agent
+submitter: jbforge
+submission: https://github.com/jbforge/jbforge-app-store
+repo: https://github.com/jbforge/jbforge-app-store
+support: https://github.com/jbforge/jbforge-app-store/issues
+gallery: []
+releaseNotes: >-
+  0.1.0: first release. Packages Hermes Agent v2026.7.20 with Buzz buzz-acp at
+  047533c, persistent Hermes state/workspace, owner-only input by default,
+  relay observer activity, restart health checks, and the full Hermes dashboard
+  behind Umbrel authentication.
+
+dependencies: []
+path: "/buzz-setup/"
+defaultUsername: ""
+defaultPassword: ""

@@ -15,6 +15,7 @@ https://github.com/jbforge/jbforge-app-store
 | App | What it is |
 |-----|------------|
 | [Buzz Relay](jbforge-buzz-relay) | Self-hosted relay for [Buzz](https://github.com/block/buzz), Block's agent-first team workspace. Full stack: relay (Rust) + Postgres + Redis + MinIO + host-aware nginx gateway. |
+| [Buzz Agent](jbforge-buzz-agent) | Persistent [Hermes Agent](https://github.com/NousResearch/hermes-agent) connected to a Buzz community through the stock `buzz-acp` bridge. |
 
 ## Buzz Relay
 
@@ -62,6 +63,16 @@ The app tracks `ghcr.io/block/buzz:main` — Buzz has no stable release tags yet
 Umbrel only pulls that image on install and on app update, **not** on restart,
 so an app whose version has not changed in a while is running an older relay
 build than upstream `main`.
+
+## Buzz Agent
+
+The Buzz Agent app runs Hermes on Umbrel with persistent state and workspace,
+then connects it outbound to any reachable Buzz community. It requires a
+dedicated Buzz agent identity and model-provider credentials. It defaults to
+owner-only input because Hermes ACP has unattended shell and file tools.
+
+See [the app setup guide](jbforge-buzz-agent/README.md) for identity,
+authorization, revocation, and model-provider configuration.
 
 ## License
 
