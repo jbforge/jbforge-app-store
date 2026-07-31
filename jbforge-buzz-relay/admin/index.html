@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Buzz Relay — admin</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --plane: #f9f9f7;
+        --surface: #fcfcfb;
+        --ink: #0b0b0b;
+        --ink-2: #52514e;
+        --muted: #898781;
+        --hairline: #e1e0d9;
+        --ring: rgba(11, 11, 11, 0.1);
+        --accent: #2a78d6;
+        --good: #0ca30c;
+        --warning: #fab219;
+        --critical: #d03b3b;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --plane: #0d0d0d;
+          --surface: #1a1a19;
+          --ink: #ffffff;
+          --ink-2: #c3c2b7;
+          --muted: #898781;
+          --hairline: #2c2c2a;
+          --ring: rgba(255, 255, 255, 0.1);
+          --accent: #3987e5;
+          --good: #0ca30c;
+          --warning: #fab219;
+          --critical: #d03b3b;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 32px 24px 64px;
+        background: var(--plane);
+        color: var(--ink);
+        font:
+          15px/1.5 system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+      }
+      main {
+        max-width: 1040px;
+        margin: 0 auto;
+      }
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 12px 20px;
+        margin-bottom: 8px;
+      }
+      h1 {
+        font-size: 20px;
+        font-weight: 600;
+        margin: 0;
+      }
+      h2 {
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin: 36px 0 12px;
+      }
+      .sub {
+        color: var(--ink-2);
+        font-size: 13px;
+        margin: 0 0 4px;
+      }
+      .spacer {
+        flex: 1;
+      }
+      select,
+      button {
+        font: inherit;
+        font-size: 13px;
+        color: var(--ink);
+        background: var(--surface);
+        border: 1px solid var(--hairline);
+        border-radius: 8px;
+        padding: 5px 10px;
+      }
+      button {
+        cursor: pointer;
+      }
+      .hero {
+        background: var(--surface);
+        border: 1px solid var(--ring);
+        border-radius: 14px;
+        padding: 20px 22px;
+        margin-top: 20px;
+      }
+      .hero .label {
+        color: var(--ink-2);
+        font-size: 13px;
+      }
+      .hero .value {
+        font-size: 52px;
+        font-weight: 600;
+        line-height: 1.05;
+        margin-top: 2px;
+      }
+      .hero .note {
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 4px;
+      }
+      .tiles {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+        gap: 12px;
+      }
+      .tile {
+        background: var(--surface);
+        border: 1px solid var(--ring);
+        border-radius: 12px;
+        padding: 14px 16px;
+      }
+      .tile .label {
+        color: var(--ink-2);
+        font-size: 13px;
+      }
+      .tile .value {
+        font-size: 26px;
+        font-weight: 600;
+        margin-top: 2px;
+      }
+      .tile .note {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 2px;
+      }
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: var(--ink-2);
+      }
+      .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        flex: none;
+      }
+      .dot.good {
+        background: var(--good);
+      }
+      .dot.warning {
+        background: var(--warning);
+      }
+      .dot.critical {
+        background: var(--critical);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--surface);
+        border: 1px solid var(--ring);
+        border-radius: 12px;
+        overflow: hidden;
+        font-size: 14px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--hairline);
+      }
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+      th {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+      td.num,
+      th.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .meter {
+        height: 6px;
+        border-radius: 3px;
+        background: #cde2fb;
+        overflow: hidden;
+        margin-top: 8px;
+      }
+      @media (prefers-color-scheme: dark) {
+        .meter {
+          background: #184f95;
+        }
+      }
+      .meter > span {
+        display: block;
+        height: 100%;
+        background: var(--accent);
+        border-radius: 3px;
+      }
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .links a {
+        color: var(--ink);
+        text-decoration: none;
+        background: var(--surface);
+        border: 1px solid var(--ring);
+        border-radius: 10px;
+        padding: 9px 14px;
+        font-size: 14px;
+      }
+      .links a:hover {
+        border-color: var(--accent);
+      }
+      .err {
+        background: var(--surface);
+        border: 1px solid var(--critical);
+        border-radius: 12px;
+        padding: 14px 16px;
+        color: var(--ink-2);
+        font-size: 14px;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.92em;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 40px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Buzz Relay</h1>
+        <span class="status"
+          ><span class="dot" id="health-dot"></span
+          ><span id="health-text">checking…</span></span
+        >
+        <span class="spacer"></span>
+        <label class="status" for="community">Community</label>
+        <select id="community"></select>
+        <button id="refresh" type="button">Refresh</button>
+      </header>
+      <p class="sub" id="identity">&nbsp;</p>
+
+      <div id="error" hidden class="err"></div>
+
+      <div class="hero">
+        <div class="label" id="hero-label">Messages stored</div>
+        <div class="value" id="hero-value">—</div>
+        <div class="note" id="hero-note">&nbsp;</div>
+      </div>
+
+      <h2>Community</h2>
+      <div class="tiles" id="community-tiles"></div>
+
+      <h2>Relay process</h2>
+      <div class="tiles" id="process-tiles"></div>
+
+      <h2>Events by kind</h2>
+      <p class="sub">
+        The two columns do not reconcile row by row: the relay buckets uncommon
+        kinds into <code>other</code> on the way in and labels every kind on the
+        way out. Received counts are relay-wide, not per community.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Kind</th>
+            <th>What it is</th>
+            <th class="num">Received</th>
+            <th class="num">Stored</th>
+          </tr>
+        </thead>
+        <tbody id="kinds"></tbody>
+      </table>
+
+      <h2>Backup</h2>
+      <p class="sub">
+        One <code>.tar.gz</code> holding a <code>pg_dump</code> of every
+        community on this relay, the media objects, the git data, and the relay
+        signing key. The key is the part that matters: restore the database
+        without it and the relay comes up with a different pubkey, which clients
+        read as a different community. Keep the archive somewhere private.
+      </p>
+      <div class="links">
+        <a href="/backup" id="backup">Download full backup</a>
+      </div>
+      <p class="sub" id="backup-note">
+        The dump runs before the download starts, so the browser may sit on
+        “waiting” for a while on a large relay.
+      </p>
+
+      <h2>Moderation</h2>
+      <div class="links">
+        <a href="/reports">Reports</a>
+        <a href="/feedback">Feedback</a>
+        <a href="/metrics">Raw metrics</a>
+      </div>
+
+      <footer id="footer">&nbsp;</footer>
+    </main>
+
+    <script>
+      // Kinds worth naming. Everything else shows its bare number — better an
+      // honest number than a guessed label.
+      const KIND_NAMES = {
+        0: "Profile metadata",
+        1: "Note",
+        3: "Contacts",
+        7: "Reaction",
+        9: "Channel message",
+        1059: "Gift wrap (DM)",
+        9000: "Channel membership",
+        9007: "Channel create",
+        9008: "Channel delete",
+        10002: "Relay list",
+        20002: "Presence",
+        30003: "Bookmark set",
+        30078: "App data",
+        30617: "Repository announcement",
+        30621: "Project",
+        44200: "Agent usage",
+      };
+
+      const fmt = new Intl.NumberFormat();
+
+      function compact(n) {
+        if (!Number.isFinite(n)) return "—";
+        if (Math.abs(n) < 10000) return fmt.format(n);
+        return new Intl.NumberFormat(undefined, {
+          notation: "compact",
+          maximumFractionDigits: 1,
+        }).format(n);
+      }
+
+      function bytes(n) {
+        if (!Number.isFinite(n)) return "—";
+        const units = ["B", "KB", "MB", "GB", "TB"];
+        let i = 0;
+        while (n >= 1024 && i < units.length - 1) {
+          n /= 1024;
+          i += 1;
+        }
+        return `${n < 10 && i > 0 ? n.toFixed(1) : Math.round(n)} ${units[i]}`;
+      }
+
+      function duration(seconds) {
+        if (!Number.isFinite(seconds)) return "—";
+        const d = Math.floor(seconds / 86400);
+        const h = Math.floor((seconds % 86400) / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        if (d > 0) return `${d}d ${h}h`;
+        if (h > 0) return `${h}h ${m}m`;
+        return `${m}m`;
+      }
+
+      // Prometheus text exposition → [{name, labels, value}]. Enough of the
+      // format for what the relay emits: no exemplars, no timestamps.
+      function parseMetrics(text) {
+        const out = [];
+        for (const line of text.split("\n")) {
+          if (!line || line[0] === "#") continue;
+          const brace = line.indexOf("{");
+          let name;
+          let labels = {};
+          let rest;
+          if (brace === -1) {
+            const sp = line.indexOf(" ");
+            if (sp === -1) continue;
+            name = line.slice(0, sp);
+            rest = line.slice(sp + 1);
+          } else {
+            const close = line.lastIndexOf("}");
+            if (close === -1) continue;
+            name = line.slice(0, brace);
+            rest = line.slice(close + 1).trim();
+            const pairs = line
+              .slice(brace + 1, close)
+              .matchAll(/([a-zA-Z_][a-zA-Z0-9_]*)="((?:[^"\\]|\\.)*)"/g);
+            for (const [, key, raw] of pairs) {
+              labels[key] = raw.replace(/\\(["\\n])/g, (_, c) =>
+                c === "n" ? "\n" : c,
+              );
+            }
+          }
+          const value = Number.parseFloat(rest);
+          if (!Number.isFinite(value)) continue;
+          out.push({ name, labels, value });
+        }
+        return out;
+      }
+
+      const state = { samples: [], community: null, status: null, info: null };
+
+      function pick(name, filter = {}) {
+        return state.samples.filter(
+          (s) =>
+            s.name === name &&
+            Object.entries(filter).every(([k, v]) => s.labels[k] === v),
+        );
+      }
+
+      function sum(name, filter) {
+        const rows = pick(name, filter);
+        return rows.length ? rows.reduce((a, s) => a + s.value, 0) : NaN;
+      }
+
+      function forCommunity(name, extra = {}) {
+        return sum(name, { community: state.community, ...extra });
+      }
+
+      function tile(label, value, note) {
+        const el = document.createElement("div");
+        el.className = "tile";
+        el.innerHTML =
+          `<div class="label"></div><div class="value"></div>` +
+          (note ? `<div class="note"></div>` : "");
+        el.querySelector(".label").textContent = label;
+        el.querySelector(".value").textContent = value;
+        if (note) el.querySelector(".note").textContent = note;
+        return el;
+      }
+
+      function renderCommunityPicker() {
+        const names = [
+          ...new Set(
+            state.samples
+              .filter((s) => s.name === "buzz_community_messages")
+              .map((s) => s.labels.community)
+              .filter(Boolean),
+          ),
+        ];
+        // Default to the busiest host. A relay answers on every host it has ever
+        // been asked about, so most of these are empty shadows of the real one.
+        names.sort(
+          (a, b) =>
+            sum("buzz_community_messages", { community: b }) -
+            sum("buzz_community_messages", { community: a }),
+        );
+        const select = document.getElementById("community");
+        if (!state.community || !names.includes(state.community)) {
+          state.community = names[0] ?? null;
+        }
+        select.replaceChildren(
+          ...names.map((n) => {
+            const o = document.createElement("option");
+            o.value = n;
+            o.textContent = n;
+            o.selected = n === state.community;
+            return o;
+          }),
+        );
+      }
+
+      function render() {
+        const messages = forCommunity("buzz_community_messages");
+        document.getElementById("hero-value").textContent = compact(messages);
+        document.getElementById("hero-note").textContent = state.community
+          ? `on ${state.community}`
+          : "no community reported";
+
+        const humans = forCommunity("buzz_community_users", { type: "human" });
+        const agents = forCommunity("buzz_community_users", { type: "agent" });
+        const active1d = forCommunity("buzz_community_active_users", {
+          window: "1d",
+          type: "human",
+        });
+
+        document.getElementById("community-tiles").replaceChildren(
+          tile("People", compact(humans), `${compact(active1d)} active today`),
+          tile("Agents", compact(agents)),
+          tile(
+            "Channels",
+            compact(forCommunity("buzz_community_channels")),
+            `${compact(
+              forCommunity("buzz_community_active_channels", { window: "7d" }),
+            )} active this week`,
+          ),
+          tile("Git repos", compact(forCommunity("buzz_community_git_repos"))),
+          tile(
+            "Media stored",
+            bytes(forCommunity("buzz_community_storage_bytes")),
+            `${compact(forCommunity("buzz_community_storage_objects"))} objects`,
+          ),
+          tile(
+            "Live connections",
+            compact(forCommunity("buzz_community_ws_connections")),
+            `${compact(forCommunity("buzz_community_subscriptions"))} subscriptions`,
+          ),
+        );
+
+        const dbActive = sum("buzz_db_pool_active");
+        const dbMax = sum("buzz_db_pool_max");
+        const process = [
+          tile(
+            "Relay version",
+            state.status?.version ?? "—",
+            state.status?.service ?? "",
+          ),
+          tile("Uptime", duration(state.status?.uptime_seconds)),
+          tile("Communities", compact(sum("buzz_communities_total"))),
+          tile("Events stored", compact(sum("buzz_events_stored_total"))),
+          tile("Events rejected", compact(sum("buzz_events_rejected_total"))),
+          tile("Auth failures", compact(sum("buzz_auth_failures_total"))),
+        ];
+        const pool = tile(
+          "Postgres pool",
+          `${compact(dbActive)} / ${compact(dbMax)}`,
+          "in use / max",
+        );
+        if (Number.isFinite(dbActive) && Number.isFinite(dbMax) && dbMax > 0) {
+          const meter = document.createElement("div");
+          meter.className = "meter";
+          const fill = document.createElement("span");
+          fill.style.width = `${Math.min(100, (dbActive / dbMax) * 100)}%`;
+          meter.append(fill);
+          pool.append(meter);
+        }
+        process.push(pool);
+        document.getElementById("process-tiles").replaceChildren(...process);
+
+        const kinds = new Map();
+        for (const s of pick("buzz_events_received_total")) {
+          const k = s.labels.kind;
+          if (!k) continue;
+          kinds.set(k, {
+            ...(kinds.get(k) ?? { received: 0, stored: 0 }),
+            received: (kinds.get(k)?.received ?? 0) + s.value,
+          });
+        }
+        for (const s of pick("buzz_events_stored_total")) {
+          const k = s.labels.kind;
+          if (!k) continue;
+          const row = kinds.get(k) ?? { received: 0, stored: 0 };
+          row.stored += s.value;
+          kinds.set(k, row);
+        }
+        // The received counter buckets rare kinds into "other" while the stored
+        // counter labels every one, so rank on the pair — otherwise the long
+        // tail of stored-but-unbucketed kinds sinks below the noise.
+        const rows = [...kinds.entries()].sort(
+          (a, b) =>
+            b[1].received + b[1].stored - (a[1].received + a[1].stored),
+        );
+        document.getElementById("kinds").replaceChildren(
+          ...rows.map(([kind, counts]) => {
+            const tr = document.createElement("tr");
+            for (const [text, cls] of [
+              [kind, ""],
+              [KIND_NAMES[kind] ?? "", ""],
+              [fmt.format(counts.received), "num"],
+              [fmt.format(counts.stored), "num"],
+            ]) {
+              const td = document.createElement("td");
+              td.className = cls;
+              td.textContent = text;
+              tr.append(td);
+            }
+            return tr;
+          }),
+        );
+
+        const info = state.info;
+        document.getElementById("identity").textContent = info
+          ? `${info.name ?? "Buzz relay"} · ${info.software ?? ""} · NIPs ${(info.supported_nips ?? []).join(", ")}`
+          : " ";
+
+        document.getElementById("footer").textContent =
+          `Read from /_status and /metrics on this relay. Refreshed ${new Date().toLocaleTimeString()}.`;
+      }
+
+      function setHealth(kind, text) {
+        document.getElementById("health-dot").className = `dot ${kind}`;
+        document.getElementById("health-text").textContent = text;
+      }
+
+      async function load() {
+        const err = document.getElementById("error");
+        try {
+          setHealth("warning", "loading…");
+          const [metricsText, status, info] = await Promise.all([
+            fetch("/metrics").then((r) => {
+              if (!r.ok) throw new Error(`/metrics returned ${r.status}`);
+              return r.text();
+            }),
+            fetch("/_status")
+              .then((r) => (r.ok ? r.json() : null))
+              .catch(() => null),
+            fetch("/_relay_info")
+              .then((r) => (r.ok ? r.json() : null))
+              .catch(() => null),
+          ]);
+          state.samples = parseMetrics(metricsText);
+          state.status = status;
+          state.info = info;
+          err.hidden = true;
+          renderCommunityPicker();
+          render();
+          setHealth("good", "relay responding");
+        } catch (e) {
+          setHealth("critical", "relay unreachable");
+          err.hidden = false;
+          err.textContent = `Could not read relay stats: ${e.message}. The relay container may be starting or unhealthy.`;
+        }
+      }
+
+      document.getElementById("refresh").addEventListener("click", load);
+      document.getElementById("community").addEventListener("change", (e) => {
+        state.community = e.target.value;
+        render();
+      });
+      load();
+      setInterval(load, 30000);
+    </script>
+  </body>
+</html>

@@ -4,7 +4,7 @@ name: Buzz Relay
 tagline: Self-hosted relay for Buzz — the agent-first team workspace by Block
 icon: https://raw.githubusercontent.com/jbforge/jbforge-app-store/main/jbforge-buzz-relay/icon.svg
 category: social
-version: "0.2.0"
+version: "0.3.0"
 port: 8482
 description: >-
   Runs the buzz-relay backend for Buzz (https://github.com/block/buzz), a
@@ -34,6 +34,17 @@ description: >-
   • The relay signing key derives from this install's app seed, so the
     community identity is stable across restarts and updates. It can be
     overridden via user.env to carry an existing community onto this install.
+  • An admin dashboard runs on port 8484 (http://umbrel.local:8484), behind
+    HTTP Basic auth. Username "admin"; the password is this app's Umbrel
+    password, also written to
+    app-data/jbforge-buzz-relay/data/admin/credentials.txt. It shows relay
+    version and uptime, per-community message/user/channel/media counts, event
+    counts by kind, the relay's moderation reports and feedback, and a
+    one-click full backup.
+  • The backup is a single tar.gz: a pg_dump of every community on the relay,
+    the media object store, the git data, and the relay signing key, with
+    restore instructions. Umbrel's own app backup copies a live Postgres data
+    directory in place, which is not a restorable snapshot — use this instead.
   • All data is stored under this app's data directory and is included in
     normal Umbrel app backups.
 
@@ -48,18 +59,32 @@ gallery:
   - https://raw.githubusercontent.com/block/buzz/main/docs/assets/screenshots/channel-agents.png
   - https://raw.githubusercontent.com/block/buzz/main/docs/assets/screenshots/create-channel.png
 releaseNotes: >-
-  0.2.0: first public release under the JBForge App Store. Continues the
-  jacks-buzz-relay 0.1.x lineage (crash-loop fix, static IPs, bundled web UI,
-  user.env relay/media URL override, host-aware nginx gateway) under a new app
-  id, and adds BUZZ_RELAY_PRIVATE_KEY / BUZZ_GIT_HOOK_HMAC_SECRET overrides in
-  user.env so an existing community's identity can be carried onto a new
-  install.
+  0.3.0: admin dashboard, full backup, and a pinned relay build.
 
-  Tracks the ghcr.io/block/buzz:main image (Buzz has no stable release tags
-  yet). Restarting the app does not re-pull; update the app to pick up a newer
-  relay build.
+  The dashboard runs on port 8484 behind HTTP Basic auth (username "admin",
+  password = this app's Umbrel password, also written to
+  app-data/jbforge-buzz-relay/data/admin/credentials.txt). It reports relay
+  version and uptime, per-community counts for messages, people, agents,
+  channels, git repos, media and live connections, event counts by kind, and
+  the relay's own moderation reports and feedback. The relay port is unchanged
+  and still unauthenticated, so the desktop app connects exactly as before.
+
+  "Download full backup" streams one tar.gz containing a pg_dump of every
+  community on the relay, the media object store, the git data, the relay
+  signing key and git-hook secret, and restore instructions. The key is what
+  makes a restore the same community rather than a new empty one.
+
+  The relay image is now pinned by digest
+  (sha256:80ee929d…, block/buzz@b1b283cd4, 31 Jul 2026) instead of tracking the
+  floating :main tag, so each update is a reviewable version bump. Buzz
+  versions the relay separately from Buzz Desktop via relay-v* tags; the
+  current relay release, 0.2.0, predates the desktop 0.5.3 line, so :main
+  remains the right channel.
+
+  Updating in place preserves all community data — app-data is untouched and
+  the relay identity still derives from the same seed.
 
 dependencies: []
 path: ""
-defaultUsername: ""
+defaultUsername: "admin"
 defaultPassword: ""
