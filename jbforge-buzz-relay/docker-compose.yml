@@ -31,11 +31,16 @@ services:
       BUZZ_RELAY_METRICS_UPSTREAM: ${APP_JBFORGE_BUZZ_RELAY_IP}:9102
       BUZZ_ADMIN_HOST: ${APP_JBFORGE_BUZZ_RELAY_ADMIN_HOST}
       BUZZ_ADMIN_PASSWORD: ${APP_JBFORGE_BUZZ_RELAY_ADMIN_PASSWORD}
+      # Umbrel's deterministic per-app password, resolved here rather than in
+      # exports.sh: umbreld only exports APP_PASSWORD after exports.sh has been
+      # sourced (under `set -u`), but it is always set by the time compose
+      # interpolates this file. Matches "Show default credentials" in the UI.
+      BUZZ_ADMIN_PASSWORD_FALLBACK: ${APP_PASSWORD:-}
       BUZZ_BACKUP_UPSTREAM: ${APP_JBFORGE_BUZZ_RELAY_BACKUP_IP}:8082
       NGINX_ENVSUBST_FILTER: BUZZ_
-    # Writes the Basic-auth file from APP_PASSWORD, then hands off to the nginx
-    # entrypoint. Fail closed: an empty password would otherwise publish the
-    # dashboard with a blank credential, so it falls back to a random one nobody
+    # Writes the Basic-auth file, then hands off to the nginx entrypoint.
+    # Password precedence: user override (BUZZ_ADMIN_PASSWORD via user.env),
+    # then Umbrel's per-app password, then fail closed on a random one nobody
     # holds — that locks the admin port only, :80 keeps serving either way.
     # Kept on one line because Umbrel round-trips this file through YAML and a
     # block scalar can come back folded with its newlines turned into spaces.
@@ -43,7 +48,7 @@ services:
       [
         "/bin/sh",
         "-ec",
-        "pw=\"$$BUZZ_ADMIN_PASSWORD\"; [ -n \"$$pw\" ] || pw=\"$$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \\n')\"; printf 'admin:{PLAIN}%s\\n' \"$$pw\" > /etc/nginx/admin.htpasswd; chmod 644 /etc/nginx/admin.htpasswd; printf 'username: admin\\npassword: %s\\n' \"$$pw\" > /run/buzz-admin/credentials.txt; chmod 644 /run/buzz-admin/credentials.txt; exec /docker-entrypoint.sh nginx -g 'daemon off;'",
+        "pw=\"$$BUZZ_ADMIN_PASSWORD\"; [ -n \"$$pw\" ] || pw=\"$$BUZZ_ADMIN_PASSWORD_FALLBACK\"; [ -n \"$$pw\" ] || pw=\"$$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \\n')\"; printf 'admin:{PLAIN}%s\\n' \"$$pw\" > /etc/nginx/admin.htpasswd; chmod 644 /etc/nginx/admin.htpasswd; printf 'username: admin\\npassword: %s\\n' \"$$pw\" > /run/buzz-admin/credentials.txt; chmod 644 /run/buzz-admin/credentials.txt; exec /docker-entrypoint.sh nginx -g 'daemon off;'",
       ]
     volumes:
       - ${APP_DATA_DIR}/default.conf.template:/etc/nginx/templates/default.conf.template:ro
@@ -77,8 +82,8 @@ services:
       BUZZ_PGUSER: buzz
       BUZZ_PGPASSWORD: moneyprintergobrrr
       BUZZ_PGDATABASE: buzz
-      BUZZ_RELAY_PRIVATE_KEY: ${APP_JBFORGE_BUZZ_RELAY_PRIVATE_KEY}
-      BUZZ_GIT_HOOK_HMAC_SECRET: ${APP_JBFORGE_BUZZ_RELAY_GIT_HOOK_SECRET}
+      BUZZ_RELAY_PRIVATE_KEY: ${APP_JBFORGE_BUZZ_RELAY_PRIVATE_KEY:-${APP_SEED}}
+      BUZZ_GIT_HOOK_HMAC_SECRET: ${APP_JBFORGE_BUZZ_RELAY_GIT_HOOK_SECRET:-${APP_SEED}-git-hook}
       BUZZ_RELAY_URL: ${APP_JBFORGE_BUZZ_RELAY_URL}
       BUZZ_RELAY_IMAGE: ghcr.io/block/buzz:main@sha256:80ee929de9584f030286d9d20c9fde724c200665fd36910387668df3764a065c
     # One line on purpose: Umbrel rewrites this compose file through a YAML
@@ -139,8 +144,8 @@ services:
       # arriving on the admin port and never for community traffic, so the
       # community host cannot reach the admin surface and vice versa.
       BUZZ_ADMIN_HOST: ${APP_JBFORGE_BUZZ_RELAY_ADMIN_HOST}
-      BUZZ_RELAY_PRIVATE_KEY: ${APP_JBFORGE_BUZZ_RELAY_PRIVATE_KEY}
-      BUZZ_GIT_HOOK_HMAC_SECRET: ${APP_JBFORGE_BUZZ_RELAY_GIT_HOOK_SECRET}
+      BUZZ_RELAY_PRIVATE_KEY: ${APP_JBFORGE_BUZZ_RELAY_PRIVATE_KEY:-${APP_SEED}}
+      BUZZ_GIT_HOOK_HMAC_SECRET: ${APP_JBFORGE_BUZZ_RELAY_GIT_HOOK_SECRET:-${APP_SEED}-git-hook}
       RELAY_URL: ${APP_JBFORGE_BUZZ_RELAY_URL}
       BUZZ_MEDIA_BASE_URL: ${APP_JBFORGE_BUZZ_RELAY_MEDIA_URL}
       RUST_LOG: buzz_relay=info,buzz_db=info,buzz_auth=info,buzz_pubsub=info,tower_http=info

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Umbrel app updates copy only a file whitelist (docker-compose.yml, *.template,
+# exports.sh, torrc, hooks — see app-script pre-patch-update); the admin/ and
+# backup/ directories this app mounts into containers never arrive that way.
+# This hook runs on every app start, before `compose up`, and syncs them from
+# the installed store checkout so an updated app is complete. Hook failures are
+# swallowed by app-script, so at worst the gateway keeps serving the previous
+# dashboard files.
+set -euo pipefail
+
+APP_ID="jbforge-buzz-relay"
+
+for store_dir in "${UMBREL_ROOT}/app-stores/"*"/${APP_ID}"; do
+  if [[ -f "${store_dir}/umbrel-app.yml" ]]; then
+    for dir in admin backup; do
+      if [[ -d "${store_dir}/${dir}" ]]; then
+        cp --archive --force "${store_dir}/${dir}" "${APP_DATA_DIR}/"
+      fi
+    done
+    break
+  fi
+done

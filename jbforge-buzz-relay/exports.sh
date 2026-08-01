@@ -15,14 +15,16 @@ _buzz_user_env="${UMBREL_ROOT:-/home/umbrel/umbrel}/app-data/jbforge-buzz-relay/
 [ -f "${_buzz_user_env}" ] && . "${_buzz_user_env}"
 export APP_JBFORGE_BUZZ_RELAY_URL="${APP_JBFORGE_BUZZ_RELAY_URL:-ws://${DEVICE_DOMAIN_NAME:-umbrel.local}:8482}"
 
-# Relay identity. By default the signing key derives from ${APP_SEED}, Umbrel's
-# deterministic per-install secret, so the community identity is stable across
-# restarts and updates. Set BUZZ_RELAY_PRIVATE_KEY (and BUZZ_GIT_HOOK_HMAC_SECRET)
-# in the same user.env to carry an existing community's identity onto this
-# install — that is what makes migrating a live community here possible, since a
-# different app id would otherwise get a different seed and seed a new community.
-export APP_JBFORGE_BUZZ_RELAY_PRIVATE_KEY="${BUZZ_RELAY_PRIVATE_KEY:-${APP_SEED}}"
-export APP_JBFORGE_BUZZ_RELAY_GIT_HOOK_SECRET="${BUZZ_GIT_HOOK_HMAC_SECRET:-${APP_SEED}-git-hook}"
+# Relay identity override. Set BUZZ_RELAY_PRIVATE_KEY (and
+# BUZZ_GIT_HOOK_HMAC_SECRET) in the same user.env to carry an existing
+# community's identity onto this install — that is what makes migrating a live
+# community here possible, since a different app id would otherwise get a
+# different seed and seed a new community. When unset, docker-compose.yml falls
+# back to ${APP_SEED}, Umbrel's deterministic per-install secret. That fallback
+# cannot live here: umbreld sources this file under `set -u` BEFORE it exports
+# APP_SEED, so referencing it here aborts every install and update.
+export APP_JBFORGE_BUZZ_RELAY_PRIVATE_KEY="${BUZZ_RELAY_PRIVATE_KEY:-}"
+export APP_JBFORGE_BUZZ_RELAY_GIT_HOOK_SECRET="${BUZZ_GIT_HOOK_HMAC_SECRET:-}"
 
 # Gateway derivations: canonical host (no scheme/path) and the public
 # browser-facing URL, used by the nginx gateway for host-based redirects.
@@ -52,9 +54,11 @@ export APP_JBFORGE_BUZZ_RELAY_ADMIN_PORT="${BUZZ_ADMIN_PORT:-8484}"
 # the way the community URL is.
 export APP_JBFORGE_BUZZ_RELAY_ADMIN_HOST="${BUZZ_ADMIN_HOST:-buzz-admin.internal}"
 
-# Basic-auth password for the admin port. APP_PASSWORD is Umbrel's deterministic
-# per-app secret (HMAC of the box seed), so it is stable across restarts and
-# updates without being stored anywhere. Override in user.env to pick your own.
-# The gateway also writes the value it used to
+# Basic-auth password override for the admin port; set BUZZ_ADMIN_PASSWORD in
+# user.env to pick your own. When empty, the gateway falls back to Umbrel's
+# deterministic per-app password (APP_PASSWORD, an HMAC of the box seed) — that
+# fallback lives in docker-compose.yml, NOT here: umbreld sources this file
+# under `set -u` BEFORE it exports APP_PASSWORD, so referencing it here aborts
+# every install and update. The gateway writes the value it used to
 # app-data/jbforge-buzz-relay/data/admin/credentials.txt.
-export APP_JBFORGE_BUZZ_RELAY_ADMIN_PASSWORD="${BUZZ_ADMIN_PASSWORD:-${APP_PASSWORD}}"
+export APP_JBFORGE_BUZZ_RELAY_ADMIN_PASSWORD="${BUZZ_ADMIN_PASSWORD:-}"
