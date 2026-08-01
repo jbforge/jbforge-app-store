@@ -1,0 +1,119 @@
+#!/bin/sh
+# Streams a full backup of this relay as one tar.gz.
+#
+# Run as CGI by busybox httpd inside the backup sidecar, reached only through
+# the gateway's Basic-auth'd admin listener. Everything the archive holds is
+# enough to bring this community back up somewhere else — including the relay's
+# signing key, which is the piece that decides whether a restore *is* this
+# community or a new empty one with the same messages in it.
+#
+# The archive is assembled in full before any header goes out. A CGI that
+# streams first and fails later hands the browser a truncated .tar.gz with a
+# 200 on it, which is the one failure mode a backup tool must not have.
+set -eu
+
+WORK=""
+cleanup() {
+  if [ -n "${WORK}" ]; then
+    rm -rf "${WORK}"
+  fi
+}
+fail() {
+  printf 'Status: 500 Internal Server Error\r\n'
+  printf 'Content-Type: text/plain\r\n'
+  printf 'Cache-Control: no-store\r\n'
+  printf '\r\n'
+  printf 'Backup failed at: %s\n' "$1"
+  printf 'Check the jbforge-buzz-relay backup container logs.\n'
+  cleanup
+  exit 0
+}
+trap cleanup INT TERM
+
+STAMP="$(date -u +%Y%m%d-%H%M%SZ)"
+NAME="buzz-relay-backup-${STAMP}"
+
+WORK="$(mktemp -d /tmp/buzz-backup.XXXXXX)" || fail "creating a work directory"
+# Build under a directory named for the backup so it unpacks into its own
+# folder rather than spraying the caller's cwd.
+OUT="${WORK}/${NAME}"
+mkdir -p "${OUT}" || fail "creating ${OUT}"
+
+# Custom format: compressed, and pg_restore can list it (`pg_restore -l`) to
+# verify the dump before anyone trusts it. One dump covers every community on
+# the relay — communities are rows in one database, not separate databases.
+PGPASSWORD="${BUZZ_PGPASSWORD}" pg_dump \
+  --format=custom \
+  --no-owner \
+  --no-privileges \
+  --host="${BUZZ_PGHOST}" \
+  --username="${BUZZ_PGUSER}" \
+  --dbname="${BUZZ_PGDATABASE}" \
+  --file="${OUT}/postgres.dump" || fail "pg_dump"
+
+# Media blobs and git object storage, straight off the read-only mounts.
+if [ -d /backup-src/minio ]; then
+  cp -a /backup-src/minio "${OUT}/minio" || fail "copying media objects"
+fi
+if [ -d /backup-src/git ]; then
+  cp -a /backup-src/git "${OUT}/git" || fail "copying git data"
+fi
+
+# The identity. Restoring the database without this produces a relay with a
+# different pubkey: clients treat it as a different community, and nothing
+# reconnects.
+cat > "${OUT}/identity.env" <<EOF || fail "writing identity.env"
+# Put these two lines in app-data/<app-id>/user.env on the target install
+# BEFORE first start, or the relay derives a fresh identity from that install's
+# APP_SEED and seeds an empty community.
+BUZZ_RELAY_PRIVATE_KEY=${BUZZ_RELAY_PRIVATE_KEY}
+BUZZ_GIT_HOOK_HMAC_SECRET=${BUZZ_GIT_HOOK_HMAC_SECRET}
+EOF
+chmod 600 "${OUT}/identity.env"
+
+cat > "${OUT}/RESTORE.md" <<EOF || fail "writing RESTORE.md"
+# Restoring this backup
+
+Taken $(date -u +'%Y-%m-%d %H:%M:%SZ') from relay image
+\`${BUZZ_RELAY_IMAGE}\` serving \`${BUZZ_RELAY_URL}\`.
+
+Contents:
+
+- \`postgres.dump\` — pg_dump custom format, the whole relay database (all
+  communities: events, channels, members, workflows, git objects).
+- \`minio/\` — the media object store as it sits on disk.
+- \`git/\` — the relay's git working data.
+- \`identity.env\` — the relay signing key and git-hook secret. **Secret.**
+
+## Steps
+
+1. Install the Buzz Relay app on the target Umbrel, then stop it.
+2. Write \`identity.env\`'s two lines into
+   \`~/umbrel/app-data/<app-id>/user.env\`, plus the URL this community answers
+   on (\`APP_..._RELAY_URL=${BUZZ_RELAY_URL}\`). The relay binds a community to
+   one host, so a different host re-seeds a new one.
+3. Copy \`minio/\` and \`git/\` over \`app-data/<app-id>/data/\`, preserving
+   ownership.
+4. Start the app once so migrations create the schema, stop the relay
+   container, then load the dump:
+
+       pg_restore --clean --if-exists --no-owner --no-privileges \\
+         -h <postgres-ip> -U buzz -d buzz postgres.dump
+
+5. Start the app. Check the relay pubkey in the NIP-11 document matches the one
+   your clients already trust.
+
+Verify the dump without restoring it: \`pg_restore -l postgres.dump\`.
+EOF
+
+ARCHIVE="${WORK}/${NAME}.tar.gz"
+tar -czf "${ARCHIVE}" -C "${WORK}" "${NAME}" || fail "creating the archive"
+SIZE="$(wc -c < "${ARCHIVE}" | tr -d ' ')"
+
+printf 'Content-Type: application/gzip\r\n'
+printf 'Content-Length: %s\r\n' "${SIZE}"
+printf 'Content-Disposition: attachment; filename="%s.tar.gz"\r\n' "${NAME}"
+printf 'Cache-Control: no-store\r\n'
+printf '\r\n'
+cat "${ARCHIVE}"
+cleanup
