@@ -4,7 +4,7 @@ name: Buzz Relay
 tagline: Self-hosted relay for Buzz — the agent-first team workspace by Block
 icon: https://raw.githubusercontent.com/jbforge/jbforge-app-store/main/jbforge-buzz-relay/icon.svg
 category: social
-version: "0.3.0"
+version: "0.3.1"
 port: 8482
 description: >-
   Runs the buzz-relay backend for Buzz (https://github.com/block/buzz), a
@@ -59,6 +59,16 @@ gallery:
   - https://raw.githubusercontent.com/block/buzz/main/docs/assets/screenshots/channel-agents.png
   - https://raw.githubusercontent.com/block/buzz/main/docs/assets/screenshots/create-channel.png
 releaseNotes: >-
+  0.3.1: packaging fixes for 0.3.0 — no feature changes.
+
+  Fixes an exports.sh crash that aborted every install and update (it read
+  APP_PASSWORD before umbreld defines it; the fallback now happens in
+  docker-compose, where the variable exists). Umbrel's right-click "Show
+  default credentials" now shows the admin password (deterministicPassword
+  was missing from the manifest). A pre-start hook now syncs the admin/ and
+  backup/ directories on every start, because Umbrel updates only copy a
+  small file whitelist and never delivered them.
+
   0.3.0: admin dashboard, full backup, and a pinned relay build.
 
   The dashboard runs on port 8484 behind HTTP Basic auth (username "admin",
@@ -87,4 +97,4 @@ releaseNotes: >-
 dependencies: []
 path: ""
 defaultUsername: "admin"
-defaultPassword: ""
+deterministicPassword: true
